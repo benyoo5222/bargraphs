@@ -40,13 +40,15 @@ const createBarDivs = (barInfo) => {
   );
 
   const divBarContinerElement = document.createElement("div");
+  divBarContinerElement.style.width = barInfo.barGraphContinaerConfig.width;
+  divBarContinerElement.style.height = barInfo.barGraphContinaerConfig.height;
 
   barInfo.arrayOfInfo.forEach((info) => {
     // To Do --> Check if array of objects
     const divElement = document.createElement("div");
     divElement.style.backgroundColor = "black"; // Will change based on config
     divElement.style.margin = "5px"; // Need to calculate Or be overwritten by the config
-    divElement.style.width = `${averageHeightOfPixelsPerGroup * info}px`;
+    divElement.style.width = `${averageWidthOfPixelsPerGroup * info}px`;
     divElement.style.height = `${averageHeightOfPixelsPerGroup}px`;
 
     divBarContinerElement.appendChild(divElement);
@@ -74,9 +76,7 @@ const drawBarChart = (data, options, element) => {
       );
     }
 
-    const isArrayOfObjects = data.every(checkIfBarInfoValid);
-
-    if (!isArrayOfObjects) {
+    if (!data.every(checkIfBarInfoValid)) {
       reject(
         createAPIResponses(400, "Please make sure your bar data is valid")
       );
@@ -90,7 +90,7 @@ const drawBarChart = (data, options, element) => {
         ...options,
       },
       arrayOfInfo: data,
-      isArrayOfObjects,
+      isArrayOfObjects: false, // Write validation
     };
     selectedElement.appendChild(createBarDivs(barInfo));
   });
