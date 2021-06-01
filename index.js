@@ -52,6 +52,8 @@ const drawBarChart = (data, options, element) => {
       );
     }
 
+    console.log("test");
+
     const barInfo = {
       barGraphContinaerConfig: {
         ...defaultOptions,
