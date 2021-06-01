@@ -1,6 +1,8 @@
 const defaultOptions = {
   width: "500px",
   height: "500px",
+  margin: "5px",
+  defaultBarColor: "black",
 };
 
 const createAPIResponses = (statusCode, message) => {
@@ -10,45 +12,101 @@ const createAPIResponses = (statusCode, message) => {
   };
 };
 
-const parseWidthOrHeightPixels = (dimensions) => {
-  return dimensions.match(/[0-9]/g).join("");
+const parsePixelsIntoNumber = (dimensions) => {
+  return Number(dimensions.match(/[0-9]/g).join(""));
+};
+
+const checkBarInfoObjIsValid = (currentObj) => {
+  return currentObj.value;
+};
+
+const isBarDataAnArrayOfObjects = (currentValue) => {
+  return currentValue.arrayOfBarGroupInfo
+    ? currentValue.arrayOfBarGroupInfo.length > 0
+      ? currentValue.arrayOfBarGroupInfo.every(checkBarInfoObjIsValid)
+      : false
+    : false;
 };
 
 const checkIfBarInfoValid = (currentValue) => {
-  return currentValue.value
-    ? !Number.isNaN(Number(currentValue.value))
+  return currentValue.arrayOfBarGroupInfo
+    ? currentValue.arrayOfBarGroupInfo.length > 0
+      ? currentValue.arrayOfBarGroupInfo.every(checkBarInfoObjIsValid)
+      : false
     : !Number.isNaN(Number(currentValue));
+};
+
+const calculateNestedObjLargestValue = (arrayOfInfo) => {
+  const barInfoTracker = {};
+  for (let barGroupInfo of arrayOfInfo) {
+    barGroupInfo.arrayOfBarGroupInfo.forEach((infoObj) => {
+      barInfoTracker.largestNumber &&
+      barInfoTracker.largestNumber > infoObj.value
+        ? null
+        : (barInfoTracker.largestNumber = infoObj.value);
+    });
+  }
+
+  return barInfoTracker.largestNumber;
 };
 
 const createBarDivs = (barInfo) => {
   const fullCopyOfBarInfo = JSON.parse(JSON.stringify(barInfo.arrayOfInfo));
-  const largestDataPoint = fullCopyOfBarInfo.sort((a, b) => {
-    if (barInfo.isArrayOfObjects) {
-      return b.value - a.value;
-    }
-
-    return b - a;
-  })[0];
+  const largestDataPoint = barInfo.isBarDataAnArrayOfObjects
+    ? calculateNestedObjLargestValue(barInfo.arrayOfInfo)
+    : fullCopyOfBarInfo.sort((a, b) => {
+        return b - a;
+      })[0];
+  console.log("largest data", largestDataPoint);
 
   const averageWidthOfPixelsPerGroup = Math.round(
-    parseWidthOrHeightPixels(barInfo.barGraphContinaerConfig.width) /
+    parsePixelsIntoNumber(barInfo.barGraphContinaerConfig.width) /
       largestDataPoint
   );
-  const averageHeightOfPixelsPerGroup = Math.round(
-    parseWidthOrHeightPixels(barInfo.barGraphContinaerConfig.height) /
-      barInfo.arrayOfInfo.length
-  );
+
+  const averageHeightOfPixelsPerGroup =
+    Math.round(
+      parsePixelsIntoNumber(barInfo.barGraphContinaerConfig.height) /
+        barInfo.arrayOfInfo.length
+    ) -
+    barInfo.arrayOfInfo.length *
+      parsePixelsIntoNumber(barInfo.barGraphContinaerConfig.margin);
 
   const divBarContinerElement = document.createElement("div");
+
   divBarContinerElement.style.width = barInfo.barGraphContinaerConfig.width;
   divBarContinerElement.style.height = barInfo.barGraphContinaerConfig.height;
 
-  barInfo.arrayOfInfo.forEach((info) => {
-    // To Do --> Check if array of objects
+  barInfo.arrayOfInfo.forEach((info, index) => {
     const divElement = document.createElement("div");
-    divElement.style.backgroundColor = "black"; // Will change based on config
-    divElement.style.margin = "5px"; // Need to calculate Or be overwritten by the config
-    divElement.style.width = `${averageWidthOfPixelsPerGroup * info}px`;
+    divElement.style.margin = barInfo.barGraphContinaerConfig.margin;
+
+    if (barInfo.isBarDataAnArrayOfObjects) {
+      info.arrayOfBarGroupInfo.forEach((infoObj) => {
+        const innerBarDiv = document.createElement("div");
+        innerBarDiv.style.width = `${Math.floor(
+          averageWidthOfPixelsPerGroup * infoObj.value
+        )}px`;
+        innerBarDiv.style.height = `${Math.floor(
+          averageHeightOfPixelsPerGroup / info.arrayOfBarGroupInfo.length
+        )}px`;
+
+        innerBarDiv.style.backgroundColor =
+          infoObj.barColor || barInfo.barGraphContinaerConfig.defaultBarColor;
+
+        divElement.appendChild(innerBarDiv);
+        divBarContinerElement.appendChild(divElement);
+      });
+      return;
+    }
+
+    divElement.style.backgroundColor = barInfo.barGraphContinaerConfig.barColors
+      ? barInfo.barGraphContinaerConfig.barColors[index]
+      : barInfo.barGraphContinaerConfig.defaultBarColor; // Will change based on config
+    divElement.style.width = `${
+      averageWidthOfPixelsPerGroup * info -
+      parsePixelsIntoNumber(barInfo.barGraphContinaerConfig.margin)
+    }px`;
     divElement.style.height = `${averageHeightOfPixelsPerGroup}px`;
 
     divBarContinerElement.appendChild(divElement);
@@ -82,7 +140,8 @@ const drawBarChart = (data, options, element) => {
       );
     }
 
-    // To Do create Validation module for options object
+    // To Do: create Validation module for options object
+    // To Do: create Validation for bar color length IF not nestedObjects
 
     const barInfo = {
       barGraphContinaerConfig: {
@@ -90,10 +149,30 @@ const drawBarChart = (data, options, element) => {
         ...options,
       },
       arrayOfInfo: data,
-      isArrayOfObjects: false, // Write validation
+      isBarDataAnArrayOfObjects: data.every(isBarDataAnArrayOfObjects),
     };
     selectedElement.appendChild(createBarDivs(barInfo));
+
+    resolve(createAPIResponses(200, "Sucessfully created Bar Graph"));
   });
 };
 
-drawBarChart([1, 2, 3, 4, 5], {}, "#root");
+drawBarChart(
+  [
+    {
+      arrayOfBarGroupInfo: [
+        { barColor: "grey", value: 16 },
+        { barColor: "orange", value: 10 },
+        { barColor: "pink", value: 10 },
+      ],
+    },
+    {
+      arrayOfBarGroupInfo: [
+        { barColor: "red", value: 35 },
+        { barColor: "blue", value: 22 },
+      ],
+    },
+  ],
+  { barColors: ["red", "pink", "blue", "orange", "black"] },
+  "#root"
+);
